@@ -62,7 +62,7 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
     @Column(name = "last_login_at")
-    private LocalDateTime lastLogin;
+    private LocalDateTime lastLoginAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

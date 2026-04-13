@@ -1,4 +1,4 @@
-package com.ticks.user_service.dto;
+package com.ticks.user_service.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

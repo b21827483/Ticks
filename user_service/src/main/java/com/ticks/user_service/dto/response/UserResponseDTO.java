@@ -1,4 +1,4 @@
-package com.ticks.user_service.dto;
+package com.ticks.user_service.dto.response;
 
 import com.ticks.user_service.entity.Role;
 import com.ticks.user_service.entity.UserStatus;

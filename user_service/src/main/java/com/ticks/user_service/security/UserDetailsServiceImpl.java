@@ -1,4 +1,4 @@
-package com.ticks.user_service.service;
+package com.ticks.user_service.security;
 
 import com.ticks.user_service.entity.User;
 import com.ticks.user_service.entity.UserStatus;

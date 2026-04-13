@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class ChangePasswordRequest {
+public class ChangePasswordRequestDTO {
 
     @NotBlank(message = "Current password is required")
     private String currentPassword;

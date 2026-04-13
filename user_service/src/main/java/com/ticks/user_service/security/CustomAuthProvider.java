@@ -1,6 +1,5 @@
 package com.ticks.user_service.security;
 
-import com.ticks.user_service.service.UserDetailsServiceImpl;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;

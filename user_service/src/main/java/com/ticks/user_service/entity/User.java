@@ -61,6 +61,9 @@ public class User {
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
@@ -71,4 +74,8 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public boolean isAccountLocked() {
+        return lockedUntil != null && lockedUntil.isAfter(LocalDateTime.now());
+    }
 }

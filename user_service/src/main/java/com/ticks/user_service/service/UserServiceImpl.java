@@ -8,6 +8,8 @@ import com.ticks.user_service.exception.UserNotFoundException;
 import com.ticks.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService{
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -38,7 +41,16 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public void changePassword(String email, ChangePasswordRequestDTO request) {
+        User user = userRepository.findByEmail(email).orElseThrow(
+                () -> new UserNotFoundException("User not found with email: " + email));
 
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        log.info("Password changed for user {}", email);
     }
 
     @Override

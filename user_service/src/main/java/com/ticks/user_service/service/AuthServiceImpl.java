@@ -121,8 +121,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void forgotPassword(ForgotPasswordRequestDTO request) {
-
     }
 
     @Override

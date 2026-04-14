@@ -41,4 +41,15 @@ public class Token {
 
     @Column(name = "created_id", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "used_at")
+    private LocalDateTime usedAt;
+
+    public boolean isExpired() {
+        return LocalDateTime.now().isAfter(expiresAt);
+    }
+
+    public boolean isValid() {
+        return !revoked && !isExpired() && usedAt == null;
+    }
 }

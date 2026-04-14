@@ -5,6 +5,7 @@ import com.ticks.user_service.dto.response.AuthResponseDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
 import com.ticks.user_service.entity.*;
 import com.ticks.user_service.exception.AccountLockedException;
+import com.ticks.user_service.exception.InvalidTokenException;
 import com.ticks.user_service.exception.UserAlreadyExistsException;
 import com.ticks.user_service.exception.UserNotFoundException;
 import com.ticks.user_service.repository.TokenRepository;
@@ -98,8 +99,25 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponseDTO refreshToken(RefreshTokenRequestDTO request) {
-        return null;
+        Token storedToken = tokenRepository.findByTokenAndTokenType(request.getRefreshToken(), TokenType.REFRESH_TOKEN)
+                .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
+
+        if (!storedToken.isValid()) {
+            throw new InvalidTokenException("Refresh token is expired or revoked");
+        }
+
+        User user = storedToken.getUser();
+
+        storedToken.setRevoked(true);
+        tokenRepository.save(storedToken);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
+        String refreshToken = createRefreshToken(user, userDetails);
+
+        return authResponseBuilder(accessToken, refreshToken, user);
     }
 
     @Override

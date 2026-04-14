@@ -7,5 +7,5 @@ import lombok.Data;
 public class RefreshTokenRequestDTO {
 
     @NotBlank(message = "Token is required")
-    private String token;
+    private String refreshToken;
 }

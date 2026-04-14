@@ -69,8 +69,18 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional
     public UserResponseDTO removeRole(UUID userId, Role role) {
-        return null;
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found with id: " + userId));
+        if (user.getRoles().contains(role)) {
+            user.getRoles().remove(role);
+            userRepository.save(user);
+            log.info("Role {} removed from user: {}", role, userId);
+        } else {
+            log.info("User: {} doesn't have this role: {}", userId, role);
+        }
+        return mapToResponse(user);
     }
 
     @Override

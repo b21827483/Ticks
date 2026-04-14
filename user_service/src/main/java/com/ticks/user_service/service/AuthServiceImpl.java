@@ -131,8 +131,17 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void logout(String accessToken, String refreshToken) {
+        if (refreshToken != null) {
+            tokenRepository.findByTokenAndTokenType(refreshToken, TokenType.REFRESH_TOKEN)
+                    .ifPresent(token -> {
+                            token.setRevoked(true);
+                            tokenRepository.save(token);
+                    });
+        }
 
+        log.info("User logged out successfully");
     }
 
     private AuthResponseDTO authResponseBuilder(String accessToken, String refreshToken, User user) {

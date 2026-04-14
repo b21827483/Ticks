@@ -54,8 +54,18 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional
     public UserResponseDTO assignRole(UUID userId, Role role) {
-        return null;
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found with id: " + userId));
+        if (user.getRoles().contains(role)) {
+            log.info("User already has this role: {}", role);
+        } else {
+            user.getRoles().add(role);
+            userRepository.save(user);
+            log.info("Role {} assigned to user: {}", role, userId);
+        }
+        return mapToResponse(user);
     }
 
     @Override

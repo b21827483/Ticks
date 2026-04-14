@@ -4,13 +4,17 @@ import com.ticks.user_service.dto.request.*;
 import com.ticks.user_service.dto.response.AuthResponseDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
 import com.ticks.user_service.entity.*;
+import com.ticks.user_service.exception.AccountLockedException;
 import com.ticks.user_service.exception.UserAlreadyExistsException;
+import com.ticks.user_service.exception.UserNotFoundException;
 import com.ticks.user_service.repository.TokenRepository;
 import com.ticks.user_service.repository.UserRepository;
 import com.ticks.user_service.security.JwtTokenProvider;
 import com.ticks.user_service.security.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final TokenRepository tokenRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsServiceImpl userDetailsService;
+    private final AuthenticationManager authenticationManager;
 
     @Override
     @Transactional
@@ -60,8 +65,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponseDTO login(LoginRequestDTO request) {
-        return null;
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
+                () -> new UserNotFoundException("User not found"));
+
+        if (user.isAccountLocked()) {
+            throw new AccountLockedException("Account is temporarily locked. Try again after " + user.getLockedUntil());
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (Exception e) {
+            user.incrementFailedAttempts();
+            userRepository.save(user);
+            throw e;
+        }
+
+        user.resetFailedAttempts();
+        userRepository.updateLastLoginAt(user.getId(), LocalDateTime.now());
+        userRepository.save(user);
+
+        tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
+        String refreshToken = createRefreshToken(user, userDetails);
+
+        log.info("user logged in: {}", user.getEmail());
+        return authResponseBuilder(accessToken, refreshToken, user);
     }
 
     @Override

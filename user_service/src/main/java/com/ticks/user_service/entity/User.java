@@ -75,7 +75,23 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
     public boolean isAccountLocked() {
         return lockedUntil != null && lockedUntil.isAfter(LocalDateTime.now());
+    }
+
+    public void incrementFailedAttempts() {
+        this.failedLoginAttempts++;
+        if (this.failedLoginAttempts > 4) {
+            this.lockedUntil = LocalDateTime.now().plusMinutes(15);
+        }
+    }
+
+    public void resetFailedAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
     }
 }

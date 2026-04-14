@@ -16,6 +16,10 @@ public interface TokenRepository extends JpaRepository<Token, UUID> {
     Optional<Token> findByTokenAndTokenType(String token, TokenType tokenType);
 
     @Modifying
+    @Query("UPDATE Token t SET t.revoked = true WHERE t.id = :userId AND t.tokenType = :tokenType AND t.revoked = false")
+    void revokeAllUserTokensByType(@Param("userId") UUID id, @Param("tokenType") TokenType tokenType);
+
+    @Modifying
     @Query("DELETE FROM Token t WHERE t.expiresAt < :now")
     void deleteExpiredTokens(@Param("now")LocalDateTime now);
 }

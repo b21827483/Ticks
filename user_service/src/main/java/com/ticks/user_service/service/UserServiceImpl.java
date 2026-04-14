@@ -4,6 +4,7 @@ import com.ticks.user_service.dto.request.ChangePasswordRequestDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
 import com.ticks.user_service.entity.Role;
 import com.ticks.user_service.entity.User;
+import com.ticks.user_service.entity.UserStatus;
 import com.ticks.user_service.exception.UserNotFoundException;
 import com.ticks.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -84,13 +85,20 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional
     public void suspendUser(UUID userId) {
-
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found with id: " + userId));
+        userRepository.updateStatus(userId, UserStatus.SUSPENDED);
+        log.info("User suspended: {}", userId);
     }
 
     @Override
     public void reactivateUser(UUID userId) {
-
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found with id: " + userId));
+        userRepository.updateStatus(userId, UserStatus.ACTIVE);
+        log.info("User reactivated: {}", userId);
     }
 
     public UserResponseDTO mapToResponse(User user) {

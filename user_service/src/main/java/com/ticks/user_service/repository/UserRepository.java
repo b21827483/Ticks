@@ -1,6 +1,7 @@
 package com.ticks.user_service.repository;
 
 import com.ticks.user_service.entity.User;
+import com.ticks.user_service.entity.UserStatus;
 import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -24,4 +25,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Modifying
     @Query("UPDATE User u SET u.lastLoginAt = :lastLoginAt WHERE u.id = :id")
     void updateLastLoginAt(@Param("id") UUID id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
+
+    @Modifying
+    @Query("UPDATE User u SET u.userStatus = :userStatus WHERE u.id = :id")
+    void updateStatus(@Param("id") UUID id, UserStatus userStatus);
 }

@@ -44,6 +44,7 @@ public class UserServiceImpl implements UserService{
     }
 
     @Override
+    @Transactional
     public void changePassword(String email, ChangePasswordRequestDTO request) {
         User user = userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found with email: " + email));

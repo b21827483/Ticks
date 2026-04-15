@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -125,11 +126,42 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void forgotPassword(ForgotPasswordRequestDTO request) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(
+                user -> {
+                    tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.PASSWORD_RESET);
+                    String rawToken = UUID.randomUUID().toString();
+                    Token resetToken = Token.builder()
+                            .token(rawToken)
+                            .tokenType(TokenType.PASSWORD_RESET)
+                            .user(user)
+                            .createdAt(LocalDateTime.now())
+                            .expiresAt(LocalDateTime.now().plusMinutes(30))
+                            .build();
+                    tokenRepository.save(resetToken);
+                    log.info("Password reset token issued for: {}", user.getEmail());
+                });
     }
 
     @Override
+    @Transactional
     public void resetPassword(ResetPasswordRequestDTO request) {
+        Token resetToken = tokenRepository
+                .findByTokenAndTokenType(request.getToken(), TokenType.PASSWORD_RESET)
+                .orElseThrow(() -> new InvalidTokenException("Invalid or expired password reset token"));
 
+        if (!resetToken.isValid()) {
+            throw new InvalidTokenException("Password reset token has expired or already been used");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        userRepository.save(user);
+
+        resetToken.setRevoked(true);
+        tokenRepository.save(resetToken);
+        tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
+
+        log.info("Password reset completed for: {}", user.getEmail());
     }
 
     @Override

@@ -85,7 +85,7 @@ public class User {
 
     public void incrementFailedAttempts() {
         this.failedLoginAttempts++;
-        if (this.failedLoginAttempts > 4) {
+        if (this.failedLoginAttempts > 3) {
             this.lockedUntil = LocalDateTime.now().plusMinutes(15);
         }
     }

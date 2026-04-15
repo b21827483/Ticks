@@ -3,9 +3,11 @@ package com.ticks.user_service.service;
 import com.ticks.user_service.dto.request.ChangePasswordRequestDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
 import com.ticks.user_service.entity.Role;
+import com.ticks.user_service.entity.TokenType;
 import com.ticks.user_service.entity.User;
 import com.ticks.user_service.entity.UserStatus;
 import com.ticks.user_service.exception.UserNotFoundException;
+import com.ticks.user_service.repository.TokenRepository;
 import com.ticks.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService{
 
     private final UserRepository userRepository;
+    private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -51,6 +54,7 @@ public class UserServiceImpl implements UserService{
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
         log.info("Password changed for user {}", email);
     }
 

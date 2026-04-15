@@ -30,7 +30,7 @@ public class JwtTokenProvider {
     private long accessTokenExpirationMs;
 
     @Getter
-    @Value("{$app.jwt.refresh-token-expiration-ms}")
+    @Value("${app.jwt.refresh-token-expiration-ms}")
     private long refreshTokenExpirationMs;
 
     private SecretKey getSigningKey() {
@@ -75,7 +75,7 @@ public class JwtTokenProvider {
     }
 
     public boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration).after(new Date());
+        return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
     public String extractUsername(String token) {

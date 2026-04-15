@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -48,7 +50,7 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .phoneNumber(request.getPhoneNumber())
@@ -162,7 +164,7 @@ public class AuthServiceImpl implements AuthService {
                 .tokenType(TokenType.REFRESH_TOKEN)
                 .user(user)
                 .expiresAt(LocalDateTime.now().plusSeconds(
-                        jwtTokenProvider.getRefreshTokenExpirationMs() / 100))
+                        jwtTokenProvider.getRefreshTokenExpirationMs() / 1000))
                 .build();
         tokenRepository.save(refreshToken);
         return rawRefreshToken;

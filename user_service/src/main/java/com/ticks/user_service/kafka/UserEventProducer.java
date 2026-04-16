@@ -30,7 +30,7 @@ public class UserEventProducer {
 
     public void publishUserRegistered(User user) {
         UserRegisteredEvent event = UserRegisteredEvent.builder()
-                .id(user.getId())
+                .userId(user.getId())
                 .email(user.getEmail())
                 .username(user.getUsername())
                 .firstName(user.getFirstName())

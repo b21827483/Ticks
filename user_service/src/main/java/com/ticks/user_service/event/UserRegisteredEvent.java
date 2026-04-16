@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserRegisteredEvent {
-    private UUID id;
+    private UUID userId;
     private String email;
     private String username;
     private String firstName;

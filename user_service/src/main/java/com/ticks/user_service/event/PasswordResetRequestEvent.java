@@ -13,7 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PasswordResetRequestEvent {
-    private UUID id;
+    private UUID userId;
     private String email;
     private String firstName;
     private String resetToken;

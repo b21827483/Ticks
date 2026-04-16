@@ -13,7 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PasswordChangedEvent {
-    private UUID id;
+    private UUID userId;
     private String email;
     private String firstName;
     private LocalDateTime changedAt;

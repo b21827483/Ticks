@@ -8,6 +8,7 @@ import com.ticks.user_service.exception.AccountLockedException;
 import com.ticks.user_service.exception.InvalidTokenException;
 import com.ticks.user_service.exception.UserAlreadyExistsException;
 import com.ticks.user_service.exception.UserNotFoundException;
+import com.ticks.user_service.kafka.UserEventProducer;
 import com.ticks.user_service.repository.TokenRepository;
 import com.ticks.user_service.repository.UserRepository;
 import com.ticks.user_service.security.JwtTokenProvider;
@@ -36,6 +37,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
+    private final UserEventProducer userEventProducer;
 
     @Override
     @Transactional
@@ -61,6 +63,8 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
         log.info("User registered successfully: {}", user.getEmail());
+
+        userEventProducer.publishUserRegistered(user);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
@@ -138,6 +142,8 @@ public class AuthServiceImpl implements AuthService {
                             .expiresAt(LocalDateTime.now().plusMinutes(30))
                             .build();
                     tokenRepository.save(resetToken);
+
+                    userEventProducer.publishPasswordResetRequest(user, rawToken);
                     log.info("Password reset token issued for: {}", user.getEmail());
                 });
     }
@@ -160,6 +166,8 @@ public class AuthServiceImpl implements AuthService {
         resetToken.setRevoked(true);
         tokenRepository.save(resetToken);
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
+
+        userEventProducer.publishPasswordChanged(user);
 
         log.info("Password reset completed for: {}", user.getEmail());
     }

@@ -7,6 +7,7 @@ import com.ticks.user_service.entity.TokenType;
 import com.ticks.user_service.entity.User;
 import com.ticks.user_service.entity.UserStatus;
 import com.ticks.user_service.exception.UserNotFoundException;
+import com.ticks.user_service.kafka.UserEventProducer;
 import com.ticks.user_service.repository.TokenRepository;
 import com.ticks.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class UserServiceImpl implements UserService{
     private final UserRepository userRepository;
     private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserEventProducer userEventProducer;
 
     @Override
     @Transactional
@@ -56,6 +58,8 @@ public class UserServiceImpl implements UserService{
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
+
+        userEventProducer.pub(user);
         log.info("Password changed for user {}", email);
     }
 

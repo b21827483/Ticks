@@ -160,7 +160,12 @@
 			<artifactId>tomcat-embed-core</artifactId>
 			<version>11.0.15</version>
 		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>3.0.4</version>
+        </dependency>
+    </dependencies>
 
 	<build>
 		<plugins>

@@ -1,5 +1,6 @@
 package com.ticks.user_service.service;
 
+import com.ticks.user_service.config.CacheNames;
 import com.ticks.user_service.dto.request.ChangePasswordRequestDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
 import com.ticks.user_service.entity.Role;
@@ -12,6 +13,10 @@ import com.ticks.user_service.repository.TokenRepository;
 import com.ticks.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,16 +35,28 @@ public class UserServiceImpl implements UserService{
     private final UserEventProducer userEventProducer;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
+    @Cacheable(
+        value = CacheNames.USER_BY_EMAIL,
+        key = "#email",
+        unless = "#result == null"
+    )
     public UserResponseDTO getCurrentUser(String email) {
+        log.debug("Cache MISS - loading user by email: {}", email);
         User user = userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found with email: " + email));
         return mapToResponse(user);
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.USER_BY_ID,
+            key = "#id.toString()",
+            unless = "#result == null"
+    )
     public UserResponseDTO getUserById(UUID id) {
+        log.debug("Cache MISS - loading user by id: {}", id);
         User user = userRepository.findById(id).orElseThrow(
                 () -> new UserNotFoundException("User not found with id " + id));
         return mapToResponse(user);
@@ -47,6 +64,10 @@ public class UserServiceImpl implements UserService{
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.USER_BY_EMAIL, key = "#email"),
+            @CacheEvict(value = CacheNames.USER_EXISTS_BY_EMAIL, key = "#email")
+    })
     public void changePassword(String email, ChangePasswordRequestDTO request) {
         User user = userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found with email: " + email));
@@ -57,14 +78,21 @@ public class UserServiceImpl implements UserService{
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
 
-        userEventProducer.pub(user);
+        evictById(user.getId());
+
+        userEventProducer.publishPasswordChanged(user);
         log.info("Password changed for user {}", email);
     }
 
     @Override
     @Transactional
+    @Caching(put = {
+            @CachePut(value = CacheNames.USER_BY_EMAIL, key = "#result.email"),
+            @CachePut(value = CacheNames.USER_BY_ID, key = "#result.id.toString()")
+    })
     public UserResponseDTO assignRole(UUID userId, Role role) {
         User user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found with id: " + userId));
@@ -80,6 +108,10 @@ public class UserServiceImpl implements UserService{
 
     @Override
     @Transactional
+    @Caching(put = {
+            @CachePut(value = CacheNames.USER_BY_EMAIL, key = "#result.email"),
+            @CachePut(value = CacheNames.USER_BY_ID, key = "#result.id.toString()")
+    })
     public UserResponseDTO removeRole(UUID userId, Role role) {
         User user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found with id: " + userId));
@@ -99,6 +131,9 @@ public class UserServiceImpl implements UserService{
         User user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found with id: " + userId));
         userRepository.updateStatus(userId, UserStatus.SUSPENDED);
+        tokenRepository.revokeAllUserTokensByType(userId, TokenType.REFRESH_TOKEN);
+
+        evictBothRegions(userId, user.getEmail());
         log.info("User suspended: {}", userId);
     }
 
@@ -107,7 +142,23 @@ public class UserServiceImpl implements UserService{
         User user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found with id: " + userId));
         userRepository.updateStatus(userId, UserStatus.ACTIVE);
+        evictBothRegions(userId, user.getEmail());
         log.info("User reactivated: {}", userId);
+    }
+
+    @CacheEvict(value = CacheNames.USER_BY_ID, key = "#userId.toString()")
+    private void evictById(UUID userId) {
+        // Annotation does the work
+    }
+
+    @CacheEvict(value = CacheNames.USER_BY_EMAIL, key = "#email")
+    private void evictByEmail(String email) {
+        // Annotation does the work
+    }
+
+    private void evictBothRegions(UUID userId, String email) {
+        evictByEmail(email);
+        evictById(userId);
     }
 
     public UserResponseDTO mapToResponse(User user) {

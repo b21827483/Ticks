@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -17,6 +18,7 @@ public class RedisTokenService {
     private static final String LOGIN_ATTEMPTS_PREFIX = "login:attempts:";
     private static final String USER_CACHE_PREFIX = "user:profile:";
     private static final String RESET_TOKEN_PREFIX = "reset:token:";
+    private static final String VERIFY_TOKEN_PREFIX = "verify:token:";
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -78,4 +80,29 @@ public class RedisTokenService {
     public void evictResetToken(String token) {
         redisTemplate.delete(RESET_TOKEN_PREFIX + token);
     }
+
+    // Email verification token cache
+
+    public void cacheVerificationToken(String rawToken, String userId, LocalDateTime expiresAt) {
+
+        long ttlSeconds = java.time.Duration.between(LocalDateTime.now(), expiresAt).getSeconds();
+        log.info("ttl seconds for cache verification token: {}", ttlSeconds);
+        if (ttlSeconds <= 0) {
+            log.warn("Skipping verification token cache — token already expired");
+            return;
+        }
+        redisTemplate.opsForValue().set(VERIFY_TOKEN_PREFIX + rawToken, userId, ttlSeconds, TimeUnit.SECONDS);
+        log.debug("Verification token cached for userId: {}", userId);
+    }
+
+    public String getVerificationTokenUserId(String rawToken) {
+        return redisTemplate.opsForValue().get(VERIFY_TOKEN_PREFIX + rawToken);
+    }
+
+    public void evictVerificationToken(String rawToken) {
+        redisTemplate.delete(VERIFY_TOKEN_PREFIX + rawToken);
+        log.debug("Verification token evicted from cache");
+    }
+
+
 }

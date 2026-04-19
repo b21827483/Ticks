@@ -1,9 +1,7 @@
 package com.ticks.user_service.kafka;
 
 import com.ticks.user_service.entity.User;
-import com.ticks.user_service.event.PasswordChangedEvent;
-import com.ticks.user_service.event.PasswordResetRequestEvent;
-import com.ticks.user_service.event.UserRegisteredEvent;
+import com.ticks.user_service.event.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +29,12 @@ public class UserEventProducer {
     @Value("${app.kafka.topics.password-changed}")
     private String passwordChangedTopic;
 
+    @Value("${app.kafka.topics.email-verification-requested}")
+    private String emailVerificationRequestedTopic;
+
+    @Value("${app.kafka.topics.email-verified}")
+    private String emailVerifiedTopic;
+
     public void publishUserRegistered(User user) {
         UserRegisteredEvent event = UserRegisteredEvent.builder()
                 .userId(user.getId())
@@ -42,7 +46,7 @@ public class UserEventProducer {
         send(userRegisteredTopic, user.getId().toString(), event);
     }
 
-    public void publishPasswordResetRequest(User user, String rawToken) {
+    public void publishPasswordResetRequested(User user, String rawToken) {
         PasswordResetRequestEvent event = PasswordResetRequestEvent.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
@@ -62,6 +66,30 @@ public class UserEventProducer {
                 .changedAt(LocalDateTime.now())
                 .build();
         send(passwordChangedTopic, user.getId().toString(), event);
+    }
+
+    public void publishEmailVerificationRequested(
+            User user, String rawToken, LocalDateTime expiresAt) {
+
+        send(emailVerificationRequestedTopic, user.getId().toString(),
+                EmailVerificationRequestedEvent.builder()
+                        .userId(user.getId())
+                        .email(user.getEmail())
+                        .firstName(user.getFirstName())
+                        .verificationToken(rawToken)
+                        .requestedAt(LocalDateTime.now())
+                        .expiresAt(expiresAt)
+                        .build());
+    }
+
+    public void publishEmailVerified(User user) {
+        send(emailVerifiedTopic, user.getId().toString(),
+                EmailVerifiedEvent.builder()
+                        .userId(user.getId())
+                        .email(user.getEmail())
+                        .username(user.getUsername())
+                        .verifiedAt(LocalDateTime.now())
+                        .build());
     }
 
     private void send(String topic, String key, Object payload) {

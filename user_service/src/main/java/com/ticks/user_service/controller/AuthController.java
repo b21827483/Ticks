@@ -3,15 +3,19 @@ package com.ticks.user_service.controller;
 import com.ticks.user_service.dto.request.*;
 import com.ticks.user_service.dto.response.ApiResponseDTO;
 import com.ticks.user_service.dto.response.AuthResponseDTO;
+import com.ticks.user_service.security.JwtTokenProvider;
 import com.ticks.user_service.service.AuthService;
+import com.ticks.user_service.service.RedisTokenService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
@@ -19,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RedisTokenService redisTokenService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user")
@@ -34,6 +40,9 @@ public class AuthController {
     public ResponseEntity<ApiResponseDTO<AuthResponseDTO>> login(
             @Valid @RequestBody LoginRequestDTO request) {
         AuthResponseDTO authResponse = authService.login(request);
+
+        redisTokenService.resetLoginAttempts(request.getEmail());
+
         return ResponseEntity.status(HttpStatus.OK)
                 .body(ApiResponseDTO.success("Login successful", authResponse));
     }
@@ -47,6 +56,18 @@ public class AuthController {
         String accessToken = null;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             accessToken = authHeader.substring(7);
+
+            // Blacklist the access token in Redis
+            try {
+                long exp = jwtTokenProvider.extractClaim(accessToken,
+                        claims -> claims.getExpiration().getTime());
+                long ttl = exp - System.currentTimeMillis();
+                if (ttl > 0) {
+                    redisTokenService.blackListAccessToken(accessToken, ttl);
+                }
+            } catch (Exception e) {
+                log.warn("Could not blacklist access token on logout: {}", e.getMessage());
+            }
         }
 
         String refreshToken = (request != null) ? request.getRefreshToken() : null;

@@ -38,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
     private final UserEventProducer userEventProducer;
+    private final RedisTokenService redisTokenService;
 
     @Override
     @Transactional
@@ -82,18 +83,28 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountLockedException("Account is temporarily locked. Try again after " + user.getLockedUntil());
         }
 
+        long attempts = redisTokenService.getLoginAttempts(request.getEmail());
+        if (attempts >= 4) {
+            throw new AccountLockedException(
+                    "Too many failed attempts. Please try again in 15 minutes."
+            );
+        }
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         } catch (Exception e) {
             user.incrementFailedAttempts();
             userRepository.save(user);
+            redisTokenService.incrementLoginAttempt(request.getEmail());
             throw e;
         }
 
         user.resetFailedAttempts();
         userRepository.updateLastLoginAt(user.getId(), LocalDateTime.now());
         userRepository.save(user);
+
+        redisTokenService.resetLoginAttempts(request.getEmail());
 
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
 
@@ -133,6 +144,9 @@ public class AuthServiceImpl implements AuthService {
         userRepository.findByEmail(request.getEmail()).ifPresent(
                 user -> {
                     tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.PASSWORD_RESET);
+
+                    redisTokenService.evictResetToken(request.getEmail());
+
                     String rawToken = UUID.randomUUID().toString();
                     Token resetToken = Token.builder()
                             .token(rawToken)
@@ -143,6 +157,8 @@ public class AuthServiceImpl implements AuthService {
                             .build();
                     tokenRepository.save(resetToken);
 
+                    redisTokenService.cacheResetToken(rawToken, user.getEmail());
+
                     userEventProducer.publishPasswordResetRequest(user, rawToken);
                     log.info("Password reset token issued for: {}", user.getEmail());
                 });
@@ -151,11 +167,13 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequestDTO request) {
+
         Token resetToken = tokenRepository
                 .findByTokenAndTokenType(request.getToken(), TokenType.PASSWORD_RESET)
                 .orElseThrow(() -> new InvalidTokenException("Invalid or expired password reset token"));
 
         if (!resetToken.isValid()) {
+            redisTokenService.evictResetToken(request.getToken());
             throw new InvalidTokenException("Password reset token has expired or already been used");
         }
 
@@ -166,6 +184,8 @@ public class AuthServiceImpl implements AuthService {
         resetToken.setRevoked(true);
         tokenRepository.save(resetToken);
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
+
+        redisTokenService.evictResetToken(request.getToken());
 
         userEventProducer.publishPasswordChanged(user);
 

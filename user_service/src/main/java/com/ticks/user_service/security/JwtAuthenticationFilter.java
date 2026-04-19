@@ -1,5 +1,6 @@
 package com.ticks.user_service.security;
 
+import com.ticks.user_service.service.RedisTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsService userDetailsService;
+    private final RedisTokenService redisTokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -37,6 +39,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
+            // Reject tokens that were explicitly invalidated at logout
+            if (redisTokenService.isAccessTokenBlacklisted(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             if (!jwtTokenProvider.isAccessToken(jwt)) {
                 filterChain.doFilter(request, response);
                 return;

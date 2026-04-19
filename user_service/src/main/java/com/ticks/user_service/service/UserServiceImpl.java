@@ -1,5 +1,7 @@
 package com.ticks.user_service.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticks.user_service.config.CacheNames;
 import com.ticks.user_service.dto.request.ChangePasswordRequestDTO;
 import com.ticks.user_service.dto.response.UserResponseDTO;
@@ -33,6 +35,8 @@ public class UserServiceImpl implements UserService{
     private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserEventProducer userEventProducer;
+    private final RedisTokenService redisTokenService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -42,10 +46,27 @@ public class UserServiceImpl implements UserService{
         unless = "#result == null"
     )
     public UserResponseDTO getCurrentUser(String email) {
+        String cached = redisTokenService.getCachedUserProfile(email);
+        if (cached != null) {
+            try {
+                log.debug("Profile string cache HIT for: {}", email);
+                return objectMapper.readValue(cached, UserResponseDTO.class);
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to deserialize cached profile for {}, falling through to DB", email);
+            }
+        }
         log.debug("Cache MISS - loading user by email: {}", email);
         User user = userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found with email: " + email));
-        return mapToResponse(user);
+
+        UserResponseDTO dto = mapToResponse(user);
+        try {
+            redisTokenService.cacheUserProfile(email, objectMapper.writeValueAsString(dto));
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize user profile for caching: {}", e.getMessage());
+        }
+
+        return dto;
     }
 
     @Override
@@ -82,6 +103,7 @@ public class UserServiceImpl implements UserService{
         tokenRepository.revokeAllUserTokensByType(user.getId(), TokenType.REFRESH_TOKEN);
 
         evictById(user.getId());
+        redisTokenService.evictUserProfile(email);
 
         userEventProducer.publishPasswordChanged(user);
         log.info("Password changed for user {}", email);
@@ -134,6 +156,7 @@ public class UserServiceImpl implements UserService{
         tokenRepository.revokeAllUserTokensByType(userId, TokenType.REFRESH_TOKEN);
 
         evictBothRegions(userId, user.getEmail());
+        redisTokenService.evictUserProfile(user.getEmail());
         log.info("User suspended: {}", userId);
     }
 
@@ -143,6 +166,7 @@ public class UserServiceImpl implements UserService{
                 () -> new UserNotFoundException("User not found with id: " + userId));
         userRepository.updateStatus(userId, UserStatus.ACTIVE);
         evictBothRegions(userId, user.getEmail());
+        redisTokenService.evictUserProfile(user.getEmail());
         log.info("User reactivated: {}", userId);
     }
 

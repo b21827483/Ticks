@@ -46,6 +46,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDTO.error("Invalid email or password"));
     }
 
+    @ExceptionHandler(UserAlreadyVerifiedException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleUserAlreadyVerified(UserAlreadyVerifiedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponseDTO.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleGenericException(Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);

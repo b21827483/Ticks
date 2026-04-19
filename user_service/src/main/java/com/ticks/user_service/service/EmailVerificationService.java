@@ -3,6 +3,9 @@ package com.ticks.user_service.service;
 import com.ticks.user_service.entity.Token;
 import com.ticks.user_service.entity.TokenType;
 import com.ticks.user_service.entity.User;
+import com.ticks.user_service.entity.UserStatus;
+import com.ticks.user_service.exception.InvalidTokenException;
+import com.ticks.user_service.exception.UserAlreadyVerifiedException;
 import com.ticks.user_service.exception.UserNotFoundException;
 import com.ticks.user_service.kafka.UserEventProducer;
 import com.ticks.user_service.repository.TokenRepository;
@@ -34,6 +37,53 @@ public class EmailVerificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + userId));
         issueAndPublish(user);
+    }
+
+    @Transactional
+    public void verifyEmail(String rawToken) {
+
+        Token token = tokenRepository.findByTokenAndTokenType(rawToken, TokenType.EMAIL_VERIFICATION)
+                .orElseThrow(() -> new InvalidTokenException("Verification token not found"));
+
+        if (token.isRevoked()) {
+            throw new InvalidTokenException("Invalid verification token");
+        }
+        if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new InvalidTokenException("Verification token has expired. Please request a new one.");
+        }
+
+        User user = token.getUser();
+
+        if (user.getUserStatus() == UserStatus.ACTIVE) {
+            token.setRevoked(true);
+            tokenRepository.save(token);
+            redisTokenService.evictVerificationToken(rawToken);
+            throw new UserAlreadyVerifiedException("Email is already verified");
+        }
+
+        userRepository.updateStatus(user.getId(), UserStatus.ACTIVE);
+
+        token.setRevoked(true);
+        tokenRepository.save(token);
+        redisTokenService.evictVerificationToken(rawToken);
+        redisTokenService.evictUserProfile(user.getEmail());
+
+        userEventProducer.publishEmailVerified(user);
+
+        log.info("Email verified - user {} is now ACTIVE", user.getEmail());
+    }
+
+    @Transactional
+    public void resendVerificationEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + email));
+
+        if (user.getUserStatus() == UserStatus.ACTIVE) {
+            throw new UserAlreadyVerifiedException("Email is already verified");
+        }
+
+        issueAndPublish(user);
+        log.info("Verification email resent for: {}", email);
     }
 
     private void issueAndPublish(User user) {

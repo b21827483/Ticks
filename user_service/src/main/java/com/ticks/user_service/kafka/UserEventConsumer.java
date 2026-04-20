@@ -46,4 +46,28 @@ public class UserEventConsumer {
             log.error("Failed to process payment.completed event: {}", e.getMessage(), e);
         }
     }
+
+    @KafkaListener(
+            topics = "${app.kafka.topics.email-verified}",
+            groupId = "${spring.kafka.consumer.group-id}",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
+    public void onEmailVerified(
+            @Payload Map<String, Object> payload,
+            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+
+        log.info("Received email.verified from topic={}", topic);
+
+        try {
+            UUID userId = UUID.fromString(payload.get("userId").toString());
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getUserStatus() == UserStatus.PENDING) {
+                    userRepository.updateStatus(userId, UserStatus.ACTIVE);
+                    log.info("User {} activated after email verification", userId);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to process email.verified event: {}", e.getMessage(), e);
+        }
+    }
 }

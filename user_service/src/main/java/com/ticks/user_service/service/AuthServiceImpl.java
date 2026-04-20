@@ -39,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserEventProducer userEventProducer;
     private final RedisTokenService redisTokenService;
+    private final EmailVerificationService emailVerificationService;
 
     @Override
     @Transactional
@@ -67,6 +68,8 @@ public class AuthServiceImpl implements AuthService {
 
         userEventProducer.publishUserRegistered(user);
 
+        emailVerificationService.sendVerificationEmail(user.getId());
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
         String refreshToken = createRefreshToken(user, userDetails);
@@ -76,18 +79,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponseDTO login(LoginRequestDTO request) {
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
-                () -> new UserNotFoundException("User not found"));
-
-        if (user.isAccountLocked()) {
-            throw new AccountLockedException("Account is temporarily locked. Try again after " + user.getLockedUntil());
-        }
 
         long attempts = redisTokenService.getLoginAttempts(request.getEmail());
         if (attempts >= 4) {
             throw new AccountLockedException(
                     "Too many failed attempts. Please try again in 15 minutes."
             );
+        }
+
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
+                () -> new UserNotFoundException("User not found"));
+
+        if (user.isAccountLocked()) {
+            throw new AccountLockedException("Account is temporarily locked. Try again after " + user.getLockedUntil());
         }
 
         try {
@@ -148,18 +152,20 @@ public class AuthServiceImpl implements AuthService {
                     redisTokenService.evictResetToken(request.getEmail());
 
                     String rawToken = UUID.randomUUID().toString();
+                    LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(30);
+
                     Token resetToken = Token.builder()
                             .token(rawToken)
                             .tokenType(TokenType.PASSWORD_RESET)
                             .user(user)
                             .createdAt(LocalDateTime.now())
-                            .expiresAt(LocalDateTime.now().plusMinutes(30))
+                            .expiresAt(expiresAt)
                             .build();
                     tokenRepository.save(resetToken);
 
                     redisTokenService.cacheResetToken(rawToken, user.getEmail());
 
-                    userEventProducer.publishPasswordResetRequest(user, rawToken);
+                    userEventProducer.publishPasswordResetRequested(user, rawToken, expiresAt);
                     log.info("Password reset token issued for: {}", user.getEmail());
                 });
     }

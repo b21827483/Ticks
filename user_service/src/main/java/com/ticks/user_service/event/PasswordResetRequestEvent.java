@@ -17,6 +17,7 @@ public class PasswordResetRequestEvent {
     private String email;
     private String firstName;
     private String resetToken;
+    private String resetLink;
     private LocalDateTime requestedAt;
     private LocalDateTime expiresAt;
 }

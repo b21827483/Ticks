@@ -35,6 +35,12 @@ public class UserEventProducer {
     @Value("${app.kafka.topics.email-verified}")
     private String emailVerifiedTopic;
 
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
+
+    @Value("${app.frontend.reset-password-path}")
+    private String resetPasswordPath;
+
     public void publishUserRegistered(User user) {
         UserRegisteredEvent event = UserRegisteredEvent.builder()
                 .userId(user.getId())
@@ -47,11 +53,13 @@ public class UserEventProducer {
     }
 
     public void publishPasswordResetRequested(User user, String rawToken) {
+        String resetLink = frontendBaseUrl + resetPasswordPath + "?token=" + rawToken;
         PasswordResetRequestEvent event = PasswordResetRequestEvent.builder()
                 .userId(user.getId())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .resetToken(rawToken)
+                .resetLink(resetLink)
                 .requestedAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();

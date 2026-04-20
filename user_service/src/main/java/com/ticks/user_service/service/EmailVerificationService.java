@@ -109,4 +109,3 @@ public class EmailVerificationService {
         log.info("Verification token issued for {} (expires {})", user.getEmail(), expiresAt);
     }
 }
-

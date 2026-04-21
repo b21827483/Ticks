@@ -11,13 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * A ticketed event at a venue on a specific date.
- *
- * One event can have multiple schedules (e.g. a touring show with multiple dates
- * at the same or different venues). The Event owns the master description and
- * metadata; EventSchedule owns the date/time and per-show capacity.
- */
 @Entity
 @Table(name = "events")
 @Getter
@@ -40,11 +33,8 @@ public class Event {
     @Column(name = "image_url")
     private String imageUrl;
 
-    @Column(name = "min_price", precision = 10, scale = 2)
-    private BigDecimal minPrice;
-
-    @Column(name = "max_price", precision = 10, scale = 2)
-    private BigDecimal maxPrice;
+    @Column(name = "price", precision = 10, scale = 2)
+    private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

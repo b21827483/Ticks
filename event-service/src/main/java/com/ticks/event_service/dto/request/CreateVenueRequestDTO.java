@@ -1,4 +1,4 @@
-package com.ticks.event_service.dto;
+package com.ticks.event_service.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;

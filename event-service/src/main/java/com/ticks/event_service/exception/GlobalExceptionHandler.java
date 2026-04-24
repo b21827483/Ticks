@@ -26,6 +26,16 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(EventNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleEventNotFound(EventNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidEventStateException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleInvalidEventState(InvalidEventStateException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     private ResponseEntity<ApiResponseDTO<Void>> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(ApiResponseDTO.error(message));
     }

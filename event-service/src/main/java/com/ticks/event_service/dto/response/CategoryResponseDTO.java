@@ -26,8 +26,6 @@ public class CategoryResponseDTO implements Serializable {
     private String description;
     private String imageUrl;
 
-    private List<CategoryResponseDTO> children;
-
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

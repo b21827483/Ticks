@@ -13,9 +13,4 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
     Optional<Category> findBySlug(String slug);
 
     boolean existsByName(String name);
-
-    @Query("SELECT c FROM Category c WHERE c.parent IS NULL ORDER BY c.name")
-    List<Category> findAllTopLevel();
-
-    List<Category> findByParentIdOrderByName(UUID parentId);
 }

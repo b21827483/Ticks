@@ -21,6 +21,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleCategoryNotFound(CategoryNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     private ResponseEntity<ApiResponseDTO<Void>> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(ApiResponseDTO.error(message));
     }
